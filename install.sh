@@ -35,7 +35,7 @@ python3 "$SCRIPT_DIR/scripts/cast-memory-schema-v4.py" --db "$DB_PATH" 2>/dev/nu
 # 3. Copy scripts
 echo "[3/5] Installing scripts to $SCRIPTS_DIR..."
 cp "$SCRIPT_DIR"/scripts/*.py "$SCRIPTS_DIR/"
-echo "  Installed $(ls "$SCRIPT_DIR"/scripts/*.py | wc -l | tr -d ' ') scripts."
+echo "  Installed $(find "$SCRIPT_DIR/scripts" -maxdepth 1 -name '*.py' | wc -l | tr -d ' ') scripts."
 
 # 4. Seed procedural memories
 echo "[4/5] Seeding procedural memories..."

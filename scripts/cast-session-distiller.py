@@ -18,7 +18,7 @@ import json
 import re
 import argparse
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 
 PATH_REGEX = re.compile(r'/[^\s\'")\]]{5,}')
 DATE_SUFFIX = datetime.now().strftime('%Y%m%d')
@@ -85,8 +85,6 @@ def extract_memories(conn, run_row, col_names, dry_run=False):
     def safe_get(field, default=''):
         return run_row[col_names.index(field)] if field in col_names else default
 
-    run_id = safe_get('id', None)
-    session_id = safe_get('session_id', None)
     agent = safe_get('agent', 'unknown')
     status = safe_get('status', '')
     task_summary = safe_get('task_summary', '') or ''
