@@ -1,0 +1,52 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in cast-memory
+labels: [bug]
+title: "[Bug] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: cast-memory Version
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options: [macOS, Linux]
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      placeholder: "e.g. 3.11.4"
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component Involved
+      options: [cast-memory-router.py, cast-memory-embed.py, cast-memory-validate.py, cast-memory-consolidate.py, cast-session-distiller.py, cast-mcp-memory-server.py, Migration scripts, install.sh, other]
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Include cast.db schema version, Ollama availability, or MCP server status if relevant

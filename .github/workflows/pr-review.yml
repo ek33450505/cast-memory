@@ -1,0 +1,24 @@
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review the changed files in this PR for cast-memory. Focus on:
+            1. SQL safety: parameterized queries, IF NOT EXISTS, no destructive schema changes
+            2. FTS5 trigger correctness (insert/update/delete sync)
+            3. Embedding handling: graceful fallback when Ollama is unavailable
+            4. No hardcoded paths — use $HOME or ~/
+            Post findings as a PR comment. Cite file:line for each issue.
