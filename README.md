@@ -1,7 +1,9 @@
 # cast-memory — Persistent Memory for Claude Code Agents
 
+[![CI](https://github.com/ek33450505/cast-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/ek33450505/cast-memory/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
 Persistent, searchable, scored memory for Claude Code agents. FTS5 full-text search, relevance scoring, shared memory pool, procedural memory patterns, semantic embeddings, MCP server access, and weekly consolidation — all backed by SQLite.
 
@@ -136,6 +138,20 @@ cast-memory works independently of CAST. It only requires:
 - Optional: Ollama with `nomic-embed-text` for semantic search
 
 The scripts read/write to `~/.claude/cast.db` by default. Override with `--db <path>` or set the `CAST_DB_URL` environment variable.
+
+## CAST Ecosystem
+
+Each CAST component ships as a standalone Homebrew package. Mix and match to build your own stack.
+
+| Package | What It Does | Install |
+|---------|-------------|---------|
+| [cast-agents](https://github.com/ek33450505/cast-agents) | 17 specialist Claude Code agents | `brew tap ek33450505/cast-agents && brew install cast-agents` |
+| [cast-hooks](https://github.com/ek33450505/cast-hooks) | 13 hook scripts — observability, safety gates, dispatch | `brew tap ek33450505/cast-hooks && brew install cast-hooks` |
+| [cast-observe](https://github.com/ek33450505/cast-observe) | Session cost + token spend tracking | `brew tap ek33450505/cast-observe && brew install cast-observe` |
+| [cast-security](https://github.com/ek33450505/cast-security) | Policy gates, PII redaction, audit trail | `brew tap ek33450505/cast-security && brew install cast-security` |
+| [cast-dash](https://github.com/ek33450505/cast-dash) | Terminal UI dashboard (Python + Textual) | `brew tap ek33450505/cast-dash && brew install cast-dash` |
+| **cast-memory** | Persistent memory for Claude Code agents | `brew tap ek33450505/cast-memory && brew install cast-memory` |
+| [cast-parallel](https://github.com/ek33450505/cast-parallel) | Parallel plan execution across dual worktrees | `brew tap ek33450505/cast-parallel && brew install cast-parallel` |
 
 ## License
 
