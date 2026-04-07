@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ek33450505/cast-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/ek33450505/cast-memory/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
 Persistent, searchable, scored memory for Claude Code agents. FTS5 full-text search, relevance scoring, shared memory pool, procedural memory patterns, semantic embeddings, MCP server access, and weekly consolidation — all backed by SQLite.
@@ -30,6 +30,7 @@ bash install.sh
 - **Procedural Memory** — `type='procedural'` stores operational patterns (BATS fixes, sandbox workarounds) auto-loaded at session start
 - **Semantic Embeddings** — Optional Ollama integration generates 768-dim nomic-embed-text vectors; hybrid search combines FTS5 rank + cosine similarity
 - **Session Distiller** — Extracts decisions, patterns, and failures at session end into procedural memories
+- **Temporal Validity** — `valid_from`/`valid_to` columns let facts be superseded without deletion, preserving full history
 - **Staleness Validation** — Flags memories >30 days old, verifies file/function references still exist
 - **MCP Server** — Wraps `agent_memories` as an MCP resource for external tool access
 - **Weekly Consolidation** — Deduplicates, applies decay, archives memories below relevance threshold
@@ -110,6 +111,8 @@ All data lives in `cast.db` (SQLite, WAL mode). The `agent_memories` table is th
 | `embedding` | BLOB | 768-dim float32 vector (optional, requires Ollama) |
 | `created_at` | TEXT | ISO 8601 timestamp |
 | `updated_at` | TEXT | ISO 8601 timestamp |
+| `valid_from` | TEXT | When this fact became true (ISO 8601) |
+| `valid_to` | TEXT | When superseded (NULL = still current) |
 
 ### Virtual Tables
 
@@ -124,6 +127,25 @@ Run in order for a fresh install:
 2. `cast-memory-fts5-migrate.py` — creates FTS5 virtual table and triggers
 3. `cast-memory-schema-v3.py` — adds `embedding` BLOB column
 4. `cast-memory-schema-v4.py` — MCP server schema additions
+5. `cast-memory-migrate-temporal.py` — adds `valid_from` and `valid_to` for temporal validity
+
+### Temporal Validity
+
+`valid_from` and `valid_to` columns let facts be superseded without deletion — preserving history while keeping current queries clean.
+
+```bash
+python3 scripts/cast-memory-migrate-temporal.py
+```
+
+Default queries filter `WHERE valid_to IS NULL` to return only current facts:
+
+```bash
+# Include superseded memories
+python3 scripts/cast-memory-router.py --mode retrieve --agent shared --prompt "test" --history
+
+# Mark memory #42 as superseded
+python3 scripts/cast-memory-router.py --invalidate 42
+```
 
 ## Integration with CAST
 
