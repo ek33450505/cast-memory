@@ -8,6 +8,10 @@ Usage (route mode — default, backward compatible):
 
 Usage (retrieve mode):
   cast-memory-router.py --mode retrieve --agent <name> --prompt "<text>" [--top-n 5] [--type <type>]
+  cast-memory-router.py --mode retrieve --agent <name> --prompt "<text>" --fts-only [--top-n 5]
+
+Flags:
+  --fts-only    Skip Ollama embed call entirely; use cosine_sim=0.0. Reduces latency from ~3s to ~10-30ms.
 
 Output (route mode):
   {"agent": "debugger", "confidence": 0.82, "memory_id": 42, "reason": "..."}
@@ -27,6 +31,9 @@ import sqlite3
 import struct
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cast_db import db_query, db_execute, _connect
+
 STOP_WORDS = {
     'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
     'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
@@ -40,7 +47,7 @@ STOP_WORDS = {
     'very', 'just', 'also', 'as', 'up', 'if', 'then', 'into', 'about',
 }
 
-VALID_TYPES = {'user', 'feedback', 'project', 'reference', 'procedural'}
+VALID_TYPES = {'user', 'feedback', 'project', 'reference', 'procedural', 'user_profile'}
 
 OLLAMA_EMBED_URL = 'http://localhost:11434/api/embed'
 EMBED_MODEL = 'nomic-embed-text'
@@ -134,17 +141,26 @@ def sanitize_fts_query(prompt):
     return sanitized if sanitized.strip() else None
 
 
-def invalidate_memory(conn, memory_id):
+def invalidate_memory(memory_id):
     """Mark a memory as superseded by setting valid_to = now."""
-    conn.execute(
+    db_execute(
         "UPDATE agent_memories SET valid_to = datetime('now') WHERE id = ?",
         (memory_id,)
     )
-    conn.commit()
 
 
-def retrieve_memories(conn, prompt, agent, top_n=5, type_filter=None, include_history=False):
-    """Return top-N memories for agent, ranked by relevance. Includes shared pool."""
+def retrieve_memories(prompt, agent, top_n=5, type_filter=None, include_history=False, fts_only=False, agent_type=None):
+    """Return top-N memories for agent, ranked by relevance. Includes shared pool and user_profile (global) facts.
+
+    If agent_type is one of (commit, push, merge, code-reviewer), exclude type IN ('project', 'reference').
+    For other agent types, no filtering is applied.
+    """
+    conn = _connect()
+
+    # Determine if we should filter out project/reference for lightweight agents
+    lightweight_agents = {'commit', 'push', 'merge', 'code-reviewer'}
+    should_filter = agent_type in lightweight_agents if agent_type else False
+
     # Check FTS availability
     has_fts = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_memories_fts'"
@@ -162,8 +178,15 @@ def retrieve_memories(conn, prompt, agent, top_n=5, type_filter=None, include_hi
     else:
         temporal_clause = ""
 
-    type_clause = "AND am.type = ?" if type_filter else ""
-    type_params = (type_filter,) if type_filter else ()
+    # Type filter: either explicit --type filter OR implicit lightweight-agent filter
+    type_params = ()
+    if type_filter:
+        type_clause = "AND am.type = ?"
+        type_params = (type_filter,)
+    elif should_filter:
+        type_clause = "AND am.type NOT IN ('project', 'reference')"
+    else:
+        type_clause = ""
 
     rows = []
 
@@ -176,7 +199,7 @@ def retrieve_memories(conn, prompt, agent, top_n=5, type_filter=None, include_hi
                     FROM agent_memories am
                     JOIN agent_memories_fts fts ON am.id = fts.rowid
                     WHERE agent_memories_fts MATCH ?
-                    AND (am.agent = ? OR am.agent = 'shared')
+                    AND (am.agent = ? OR am.agent = 'shared' OR (am.agent = 'global' AND am.type = 'user_profile'))
                     {temporal_clause}
                     {type_clause}
                     ORDER BY fts.rank
@@ -193,7 +216,7 @@ def retrieve_memories(conn, prompt, agent, top_n=5, type_filter=None, include_hi
         sql = f"""
             SELECT am.*, 0 AS rank
             FROM agent_memories am
-            WHERE (am.agent = ? OR am.agent = 'shared')
+            WHERE (am.agent = ? OR am.agent = 'shared' OR (am.agent = 'global' AND am.type = 'user_profile'))
             {temporal_clause}
             {type_clause}
         """
@@ -203,8 +226,8 @@ def retrieve_memories(conn, prompt, agent, top_n=5, type_filter=None, include_hi
     # Build column_names + 'rank' for scoring
     col_names_with_rank = column_names + ['rank']
 
-    # Attempt cosine re-rank
-    query_embedding = embed_text(prompt)
+    # Attempt cosine re-rank (skipped when --fts-only; cosine term contributes 0.0)
+    query_embedding = None if fts_only else embed_text(prompt)
 
     scored = []
     for row in rows:
@@ -228,10 +251,11 @@ def retrieve_memories(conn, prompt, agent, top_n=5, type_filter=None, include_hi
         scored.append((score, row_list))
 
     scored.sort(key=lambda x: x[0], reverse=True)
+    conn.close()
     return [(s, r) for s, r in scored[:top_n]]
 
 
-def write_shared_memory(conn, name, description, content, memory_type='project',
+def write_shared_memory(name, description, content, memory_type='project',
                         importance=0.5, decay_rate=0.993):
     """Write a memory to the shared pool (agent='shared')."""
     if memory_type not in VALID_TYPES:
@@ -240,7 +264,7 @@ def write_shared_memory(conn, name, description, content, memory_type='project',
     # Check if UNIQUE constraint on (agent, name) exists by trying ON CONFLICT
     # If the constraint doesn't exist, this will fall back to a plain insert
     try:
-        conn.execute("""
+        db_execute("""
             INSERT INTO agent_memories (agent, type, name, description, content, importance, decay_rate)
             VALUES ('shared', ?, ?, ?, ?, ?, ?)
             ON CONFLICT(agent, name) DO UPDATE SET
@@ -253,12 +277,11 @@ def write_shared_memory(conn, name, description, content, memory_type='project',
         """, (memory_type, name, description, content, importance, decay_rate))
     except sqlite3.OperationalError:
         # ON CONFLICT clause requires a UNIQUE index — if not present, use INSERT OR REPLACE
-        conn.execute("""
+        db_execute("""
             INSERT OR REPLACE INTO agent_memories
             (agent, type, name, description, content, importance, decay_rate)
             VALUES ('shared', ?, ?, ?, ?, ?, ?)
         """, (memory_type, name, description, content, importance, decay_rate))
-    conn.commit()
 
 
 def main():
@@ -279,14 +302,19 @@ def main():
                         help='route: return best agent; retrieve: return ranked memory list')
     parser.add_argument('--history', action='store_true',
                         help='Include superseded (valid_to IS NOT NULL) memories in retrieve mode')
+    parser.add_argument('--fts-only', action='store_true', default=False,
+                        help='Skip Ollama embed call; use cosine_sim=0.0 (faster, ~10-30ms)')
+    parser.add_argument('--agent-type', type=str, default=None,
+                        help='Agent type for filtering (commit|push|merge|code-reviewer excludes project/reference types)')
     parser.add_argument('--invalidate', type=int, default=None, metavar='ID',
                         help='Mark memory with given ID as superseded (sets valid_to=now) and exit')
     args = parser.parse_args()
 
     null_result = json.dumps({"agent": None, "confidence": 0.0})
 
-    # Resolve DB path (needed for both --invalidate and normal modes)
+    # Resolve DB path — set env var so cast_db._get_db_path() picks it up
     db_path = args.db or os.environ.get('CAST_DB_PATH', os.path.expanduser('~/.claude/cast.db'))
+    os.environ['CAST_DB_PATH'] = db_path
 
     # --- INVALIDATE MODE (early exit, no prompt required) ---
     if args.invalidate is not None:
@@ -294,9 +322,7 @@ def main():
             print(f"ERROR: Database not found at {db_path}", file=sys.stderr)
             sys.exit(1)
         try:
-            conn = sqlite3.connect(db_path)
-            invalidate_memory(conn, args.invalidate)
-            conn.close()
+            invalidate_memory(args.invalidate)
             print(json.dumps({"invalidated": args.invalidate}))
         except Exception as e:
             print(f"ERROR: {e}", file=sys.stderr)
@@ -330,15 +356,12 @@ def main():
         return
 
     try:
-        conn = sqlite3.connect(db_path)
-
         # Check table exists
-        table_exists = conn.execute(
+        table_rows = db_query(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_memories'"
-        ).fetchone()
+        )
 
-        if not table_exists:
-            conn.close()
+        if not table_rows:
             if args.mode == 'retrieve':
                 print(json.dumps([]))
             else:
@@ -349,13 +372,15 @@ def main():
         if args.mode == 'retrieve':
             agent = args.agent or 'shared'
             type_filter = args.type
-            results = retrieve_memories(conn, prompt, agent, top_n=args.top_n,
+            results = retrieve_memories(prompt, agent, top_n=args.top_n,
                                         type_filter=type_filter,
-                                        include_history=args.history)
+                                        include_history=args.history,
+                                        fts_only=args.fts_only,
+                                        agent_type=args.agent_type)
 
             # Get column names for building output dicts
-            cursor = conn.execute("PRAGMA table_info(agent_memories)")
-            column_names = [row[1] for row in cursor.fetchall()]
+            col_rows = db_query("PRAGMA table_info(agent_memories)")
+            column_names = [row[1] for row in col_rows]
 
             output = []
             for score, row_list in results:
@@ -366,14 +391,12 @@ def main():
                 mem_dict['score'] = round(score, 4)
                 output.append(mem_dict)
 
-            conn.close()
             print(json.dumps(output, default=str))
             return
 
         # --- ROUTE MODE (default, backward compatible) ---
         prompt_tokens = tokenize(prompt)
         if len(prompt_tokens) < 3:
-            conn.close()
             print(null_result)
             return
 
@@ -381,11 +404,10 @@ def main():
 
         # Try FTS-based retrieval first for routing
         try:
-            rows = conn.execute(
+            rows = db_query(
                 "SELECT id, agent, content, description FROM agent_memories"
-            ).fetchall()
+            )
         except sqlite3.OperationalError:
-            conn.close()
             print(null_result)
             return
 
@@ -394,7 +416,8 @@ def main():
         best_memory_id = None
         best_reason = ""
 
-        for mem_id, agent, content, description in rows:
+        for row in rows:
+            mem_id, agent, content, description = row[0], row[1], row[2], row[3]
             combined = ((content or '') + ' ' + (description or '')).lower()
             content_tokens = set(re.split(r'[\s\W]+', combined))
             # Count how many prompt tokens appear in memory content
@@ -408,8 +431,6 @@ def main():
                 best_agent = agent
                 best_memory_id = mem_id
                 best_reason = f"Matched tokens: {', '.join(sorted(matches))}"
-
-        conn.close()
 
         if best_agent and best_confidence >= args.min_confidence:
             print(json.dumps({
