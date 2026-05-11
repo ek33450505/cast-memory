@@ -85,7 +85,7 @@ python3 scripts/cast-memory-consolidate.py
 ### Distill a session
 
 ```bash
-python3 scripts/cast-memory-session-distiller.py
+python3 scripts/cast-session-distiller.py
 ```
 
 ### Start MCP server
