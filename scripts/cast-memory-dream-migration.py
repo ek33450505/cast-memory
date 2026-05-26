@@ -73,7 +73,7 @@ def run_migration(db_path):
         conn.execute(CREATE_SQL)
         conn.commit()
         return True
-    except Exception as e:
+    except Exception:
         raise
     finally:
         conn.close()
