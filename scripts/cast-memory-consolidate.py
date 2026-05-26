@@ -11,7 +11,7 @@ Performs four sequential operations:
 Output: JSON summary to stdout.
 
 Cron entry (weekly Sunday 3am):
-  0 3 * * 0 python3 /Users/edkubiak/Projects/personal/claude-agent-team/scripts/cast-memory-consolidate.py >> ~/.claude/logs/memory-consolidate.log 2>&1
+  0 3 * * 0 python3 ~/Projects/personal/claude-agent-team/scripts/cast-memory-consolidate.py >> ~/.claude/logs/memory-consolidate.log 2>&1
 
 Usage:
   cast-memory-consolidate.py [--db PATH] [--dry-run]
@@ -26,6 +26,17 @@ import struct
 import argparse
 import sqlite3
 from datetime import datetime, timezone
+
+# cast_db is co-located in scripts/ — import for hook failure logging.
+# Guarded so the CLI tool still runs on a broken install where cast_db is unimportable.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from cast_db import log_hook_failure
+except Exception:
+    log_hook_failure = None
+def _maybe_log_failure(*args, **kwargs):
+    if log_hook_failure:
+        log_hook_failure(*args, **kwargs)
 
 SAFE_COL = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
@@ -281,6 +292,7 @@ def main():
 
     except sqlite3.Error as e:
         print(f"ERROR: Consolidation failed: {e}", file=sys.stderr)
+        _maybe_log_failure('cast-memory-consolidate', 1, str(e))
         try:
             conn.close()
         except Exception:
@@ -288,6 +300,7 @@ def main():
         sys.exit(1)
     except Exception as e:
         print(f"ERROR: Unexpected error: {e}", file=sys.stderr)
+        _maybe_log_failure('cast-memory-consolidate', -1, str(e))
         try:
             conn.close()
         except Exception:
