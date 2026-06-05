@@ -8,7 +8,7 @@ SCRIPTS_DIR="$CLAUDE_DIR/scripts"
 DB_PATH="${CAST_DB_URL#sqlite:///}"
 DB_PATH="${DB_PATH:-$CLAUDE_DIR/cast.db}"
 
-echo "cast-memory installer v0.1.0"
+echo "cast-memory installer v0.3.1"
 echo "=============================="
 echo ""
 
@@ -31,6 +31,9 @@ python3 "$SCRIPT_DIR/scripts/cast-memory-schema-v3.py" --db "$DB_PATH" 2>/dev/nu
 
 echo "  - Schema v4 (MCP server additions)..."
 python3 "$SCRIPT_DIR/scripts/cast-memory-schema-v4.py" --db "$DB_PATH" 2>/dev/null || true
+
+echo "  - Temporal validity migration (valid_from / valid_to columns)..."
+python3 "$SCRIPT_DIR/scripts/cast-memory-migrate-temporal.py" --db "$DB_PATH" 2>/dev/null || true
 
 # 3. Copy scripts
 echo "[3/5] Installing scripts to $SCRIPTS_DIR..."

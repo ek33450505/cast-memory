@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ek33450505/cast-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/ek33450505/cast-memory/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.1-blue)
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
 Persistent, searchable, scored memory for Claude Code agents. FTS5 full-text search, relevance scoring, shared memory pool, procedural memory patterns, semantic embeddings, MCP server access, and weekly consolidation — all backed by SQLite.
@@ -25,7 +25,7 @@ bash install.sh
 ## What It Does
 
 - **FTS5 Full-Text Search** — `agent_memories_fts` virtual table with sync triggers indexes `content` and `description` columns
-- **Relevance Scoring** — Weighted formula: `0.4 * recency + 0.3 * importance + 0.3 * fts_rank` with per-type decay rates
+- **Relevance Scoring** — Weighted formula: `0.3 * recency + 0.2 * importance + 0.25 * fts_rank + 0.25 * cosine_sim` with per-type decay rates
 - **Shared Memory Pool** — Memories with `agent='shared'` are visible to all agents
 - **Procedural Memory** — `type='procedural'` stores operational patterns (BATS fixes, sandbox workarounds) auto-loaded at session start
 - **Semantic Embeddings** — Optional Ollama integration generates 768-dim nomic-embed-text vectors; hybrid search combines FTS5 rank + cosine similarity
@@ -163,7 +163,7 @@ The scripts read/write to `~/.claude/cast.db` by default. Override with `--db <p
 
 ## CAST Ecosystem
 
-> Auto-synced from [claude-agent-team/docs/ecosystem.md](https://github.com/ek33450505/claude-agent-team/blob/main/docs/ecosystem.md). Run `~/Projects/personal/claude-agent-team/scripts/sync-ecosystem-readme.sh` to refresh.
+> Auto-synced from [claude-agent-team/docs/ecosystem.md](https://github.com/ek33450505/claude-agent-team/blob/main/docs/ecosystem.md). Run `scripts/sync-ecosystem-readme.sh` from your claude-agent-team clone to refresh.
 
 <!-- ECOSYSTEM_START -->
 | Repo | Description | Latest | Install |
@@ -180,7 +180,7 @@ The scripts read/write to `~/.claude/cast.db` by default. Override with `--db <p
 | [cast-dash](https://github.com/ek33450505/cast-dash) | Terminal UI dashboard for live swarm monitoring. 4-panel real-time display (Textual framework). | ![](https://img.shields.io/github/v/release/ek33450505/cast-dash?style=flat-square) | `brew tap ek33450505/cast-dash && brew install cast-dash` |
 | [cast-claudes_journal](https://github.com/ek33450505/cast-claudes_journal) | Session continuity — Claude's Journal auto-injects prior-day context via SessionStart hook. Obsidian vault sync. | ![](https://img.shields.io/github/v/release/ek33450505/cast-claudes_journal?style=flat-square) | `brew tap ek33450505/homebrew-claudes-journal && brew install claudes-journal` |
 | [cast-website](https://github.com/ek33450505/cast-website) | castframework.dev — marketing site and docs portal for the CAST ecosystem. | ![](https://img.shields.io/github/v/release/ek33450505/cast-website?style=flat-square) | — |
-| [cast-desktop](https://github.com/ek33450505/cast-desktop) | Tauri 2 native app — embedded PTY terminal, command palette, 11 dashboard views, Constellation 3D graph. NEW. | ![](https://img.shields.io/github/v/release/ek33450505/cast-desktop?style=flat-square) | `brew tap ek33450505/homebrew-cast-desktop && brew install cast-desktop` |
+| [cast-desktop](https://github.com/ek33450505/cast-desktop) | Tauri 2 native app — embedded PTY terminal, command palette, 11 dashboard views. | ![](https://img.shields.io/github/v/release/ek33450505/cast-desktop?style=flat-square) | `brew tap ek33450505/homebrew-cast-desktop && brew install cast-desktop` |
 <!-- ECOSYSTEM_END -->
 
 ## License

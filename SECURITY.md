@@ -4,7 +4,7 @@
 
 | Version | Support Status |
 |---------|---------------|
-| 0.1.x (current) | Full support — security and bug fixes |
+| 0.3.x (current) | Full support — security and bug fixes |
 
 ## Reporting a Vulnerability
 
