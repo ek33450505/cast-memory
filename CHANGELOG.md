@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.3.2] — 2026-06-05 — CI fix
+
+### Fixed
+- `scripts/cast-memory-router.py` — removed an unused `import uuid` (cargo-culted during the v0.3.1 flagship-parity backport) that broke the ruff `F401` CI gate.
+
 ## [0.3.1] — 2026-06-05 — Security backport + doc correctness
 
 ### Security / Correctness
