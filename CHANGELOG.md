@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [0.4.0] — 2026-06-15 — v8 parity: JSONL-aware distiller + cast_db hardening
+
+### Breaking Changes
+- `scripts/cast-session-distiller.py` — rewritten (PR #227 backport): JSONL-aware parser, user-prose-only filtering, writes to `_pending/` markdown queue. ZERO database writes. Replaces old blind-INSERT-into-agent_memories behavior. `--db` flag removed; `--pending-dir` and `--max-candidates` added; default `--min-importance` raised from 0.6 to 0.7.
+
+### Changed
+- `scripts/cast_db.py` — adds `managed_agent_invocations` + `eval_runs` to the backup allowlist; WAL/busy_timeout hardening (`PRAGMA busy_timeout=5000`, `journal_mode=WAL`, `synchronous=NORMAL`); tz-aware datetimes (`.now(datetime.timezone.utc)` replacing deprecated `.utcnow()`).
+
 ## [0.3.2] — 2026-06-05 — CI fix
 
 ### Fixed
