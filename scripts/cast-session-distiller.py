@@ -136,7 +136,7 @@ def parse_user_prose(text):
     """
     lines = text.splitlines()
 
-    first_non_empty = next((l.strip() for l in lines if l.strip()), '')
+    first_non_empty = next((ln.strip() for ln in lines if ln.strip()), '')
     if not first_non_empty.startswith('{'):
         # Plain-text fallback — treat whole input as one prose blob
         return [text] if text.strip() else []
