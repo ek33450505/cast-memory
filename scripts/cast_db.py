@@ -39,10 +39,12 @@ ALLOWED_TABLES = {
     'tool_call_failures',
     'swarm_sessions',
     'task_queue',
+    'managed_agent_invocations',
     'teammate_messages',
     'teammate_runs',
     'unstaged_warnings',
     'worktree_anomalies',
+    'eval_runs',
 }
 
 # Allowlist for CAST_DB_URL / CAST_DB_PATH resolved paths.
@@ -106,6 +108,14 @@ def _connect():
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, timeout=5)
     conn.row_factory = sqlite3.Row
+    # Harden against lock contention and ensure WAL mode (idempotent if already WAL).
+    # Never raise — a PRAGMA failure must not crash the hook pipeline.
+    try:
+        conn.execute('PRAGMA busy_timeout=5000;')
+        conn.execute('PRAGMA journal_mode=WAL;')
+        conn.execute('PRAGMA synchronous=NORMAL;')
+    except Exception as e:
+        _log_error(f'_connect PRAGMA setup failed (non-fatal): {e}')
     return conn
 
 
@@ -181,7 +191,7 @@ def _log_error(msg: str) -> None:
     try:
         log_path = Path.home() / '.claude' / 'logs' / 'db-write-errors.log'
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.datetime.utcnow().isoformat() + 'Z'
+        ts = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         with open(log_path, 'a') as f:
             f.write(f'[{ts}] ERROR cast_db.py: {msg}\n')
     except Exception:
@@ -252,7 +262,7 @@ def log_hook_failure(hook_name: str, exit_code: int, stderr: str, session_id: st
             'exit_code': exit_code,
             'stderr': (stderr or '')[:2000],
             'session_id': session_id,
-            'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
+            'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z'),
         })
     except Exception as e:
         import sys
