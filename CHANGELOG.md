@@ -5,6 +5,9 @@
 ### Changed
 - Version bump for the CAST v9 ecosystem consolidation. The FTS5 memory schema is already current (head migration `cast-memory-schema-v4.py`); no schema change in this release.
 
+### Removed
+- `.github/workflows/pr-review.yml` — the Anthropic `claude-code-action` PR reviewer required an `ANTHROPIC_API_KEY` secret that is not configured, so it failed on every PR (non-blocking). The `ruff` + `shellcheck` CI gates already cover automated review.
+
 ## [0.4.0] — 2026-06-15 — v8 parity: JSONL-aware distiller + cast_db hardening
 
 ### Breaking Changes
