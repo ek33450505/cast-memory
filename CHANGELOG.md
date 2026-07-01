@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.4.1] — 2026-07-01 — v9 ecosystem sync
+
+### Changed
+- Version bump for the CAST v9 ecosystem consolidation. The FTS5 memory schema is already current (head migration `cast-memory-schema-v4.py`); no schema change in this release.
+
 ## [0.4.0] — 2026-06-15 — v8 parity: JSONL-aware distiller + cast_db hardening
 
 ### Breaking Changes
